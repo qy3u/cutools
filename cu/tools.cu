@@ -107,5 +107,9 @@ extern "C" {
   void free_gpu_buffer(uint8_t* buf) {
     CHECK(cudaFree(buf));
   }
+
+  void check_and_sync() {
+	  CHECK_LAST_KERN();
+  }
 }
 
