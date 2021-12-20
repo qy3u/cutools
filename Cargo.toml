@@ -1,0 +1,21 @@
+[package]
+name = "cutools"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+log = "0.4.14"
+anyhow = "1.0.51"
+lazy_static = { version = "1.4.0", optional = true }
+waitpool = { version = "0.1.0", optional = true}
+
+[build-dependencies]
+cc = "1.0.72"
+which = "^4.0"
+
+
+[features]
+default = ["global-stream"]
+global-stream = ["lazy_static", "waitpool"]
