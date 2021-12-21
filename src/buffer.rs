@@ -1,10 +1,27 @@
 use std::slice;
 
 use anyhow::{ensure, Result};
-use log::debug;
 
 use crate::ffi;
 use crate::stream::Stream;
+
+#[cfg(feature = "cache-buffer")]
+use {
+    lazy_static::lazy_static,
+    std::sync::atomic::{AtomicUsize, Ordering},
+    std::{collections::HashMap, sync::Mutex},
+};
+
+#[cfg(feature = "cache-buffer")]
+static HIT: AtomicUsize = AtomicUsize::new(0);
+
+#[cfg(feature = "cache-buffer")]
+static MISS: AtomicUsize = AtomicUsize::new(0);
+
+#[cfg(feature = "cache-buffer")]
+lazy_static! {
+    static ref CACHE: Mutex<HashMap<usize, Vec<DeviceBuffer>>> = Mutex::new(HashMap::new());
+}
 
 pub struct DeviceBuffer {
     inner: DevicePtr,
@@ -12,6 +29,31 @@ pub struct DeviceBuffer {
 
 impl DeviceBuffer {
     pub fn new(len: usize) -> Self {
+        #[cfg(feature = "cache-buffer")]
+        {
+            let mut lock = CACHE.lock().unwrap();
+
+            let bufs = lock.entry(len).or_insert(Vec::new());
+            return match bufs.pop() {
+                Some(buf) => {
+                    let hit = HIT.fetch_add(1, Ordering::Relaxed) + 1;
+                    if hit % 1000 == 0 {
+                        let miss = MISS.load(Ordering::Relaxed);
+                        log::trace!("device buffer cache hit: {}, miss: {}", hit, miss);
+                    }
+                    buf
+                }
+                None => Self::_new(len),
+            };
+        }
+
+        Self::_new(len)
+    }
+
+    fn _new(len: usize) -> Self {
+        #[cfg(feature = "cache-buffer")]
+        MISS.fetch_add(1, Ordering::Relaxed);
+
         let mut inner = DevicePtr {
             ptr: unsafe { ffi::alloc_gpu_buffer(len) },
             len,
@@ -22,18 +64,19 @@ impl DeviceBuffer {
         Self { inner }
     }
 
+    fn _null() -> Self {
+        Self {
+            inner: DevicePtr::null(),
+        }
+    }
+
     pub fn from_slice<T>(s: &[T]) -> Self {
         assert!(s.len() > 0);
 
         let len = std::mem::size_of::<T>() * s.len();
         let s = unsafe { std::slice::from_raw_parts(&s[0] as *const T as *const u8, len) };
 
-        let inner = DevicePtr {
-            ptr: unsafe { ffi::alloc_gpu_buffer(len) },
-            len,
-        };
-
-        let mut buf = Self { inner };
+        let mut buf = Self::new(len);
         buf.write_from(s.into()).unwrap();
 
         buf
@@ -45,12 +88,7 @@ impl DeviceBuffer {
         let len = std::mem::size_of::<T>() * s.len();
         let s = unsafe { std::slice::from_raw_parts(&s[0] as *const T as *const u8, len) };
 
-        let inner = DevicePtr {
-            ptr: unsafe { ffi::alloc_gpu_buffer(len) },
-            len,
-        };
-
-        let mut buf = Self { inner };
+        let mut buf = Self::new(len);
         buf.write_from_with_stream(s.into(), &stream).unwrap();
 
         buf
@@ -84,7 +122,20 @@ impl DeviceBuffer {
 
 impl Drop for DeviceBuffer {
     fn drop(&mut self) {
-        debug!("free gpu buffer");
+        #[cfg(feature = "cache-buffer")]
+        {
+            let inner = self.inner;
+
+            let mut lock = CACHE.lock().unwrap();
+            lock.entry(self.len())
+                .or_insert(Vec::new())
+                .push(Self { inner });
+            return;
+        }
+
+        if self.inner.is_null() {
+            return;
+        }
         unsafe { ffi::free_gpu_buffer(self.ptr().ptr()) }
     }
 }
@@ -133,7 +184,6 @@ impl CudaLockedMemBuffer {
 
 impl Drop for CudaLockedMemBuffer {
     fn drop(&mut self) {
-        debug!("dropping CudaLockedMemBuffer");
         unsafe {
             ffi::free_locked_buffer(self.inner);
         }
@@ -178,6 +228,17 @@ impl DevicePtr {
             ptr: unsafe { self.ptr.offset(offset) },
             len,
         }
+    }
+
+    pub fn null() -> Self {
+        Self {
+            ptr: std::ptr::null(),
+            len: 0,
+        }
+    }
+
+    pub fn is_null(&self) -> bool {
+        self.ptr.is_null()
     }
 
     pub fn write_from(&mut self, src: &[u8]) -> Result<()> {

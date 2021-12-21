@@ -4,6 +4,8 @@ use crate::ffi::{create_stream, destory_stream, get_inner_stream, wait_stream};
 
 #[cfg(feature = "global-stream")]
 use lazy_static::lazy_static;
+
+#[cfg(feature = "global-stream")]
 use waitpool::Pooled;
 
 #[cfg(feature = "global-stream")]
