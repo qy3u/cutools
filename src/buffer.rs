@@ -20,7 +20,8 @@ static MISS: AtomicUsize = AtomicUsize::new(0);
 
 #[cfg(feature = "cache-buffer")]
 lazy_static! {
-    static ref CACHE: Mutex<HashMap<usize, Vec<DeviceBuffer>>> = Mutex::new(HashMap::new());
+    static ref DEV_CACHE: Mutex<HashMap<usize, Vec<DeviceBuffer>>> = Mutex::new(HashMap::new());
+    static ref LOCKED_CACHE: Mutex<HashMap<usize, Vec<CudaLockedMemBuffer>>> = Mutex::new(HashMap::new());
 }
 
 pub struct DeviceBuffer {
@@ -31,7 +32,7 @@ impl DeviceBuffer {
     pub fn new(len: usize) -> Self {
         #[cfg(feature = "cache-buffer")]
         {
-            let mut lock = CACHE.lock().unwrap();
+            let mut lock = DEV_CACHE.lock().unwrap();
 
             let bufs = lock.entry(len).or_insert(Vec::new());
             return match bufs.pop() {
@@ -47,6 +48,7 @@ impl DeviceBuffer {
             };
         }
 
+        #[cfg(not(feature = "cache-buffer"))]
         Self::_new(len)
     }
 
@@ -54,12 +56,10 @@ impl DeviceBuffer {
         #[cfg(feature = "cache-buffer")]
         MISS.fetch_add(1, Ordering::Relaxed);
 
-        let mut inner = DevicePtr {
+        let inner = DevicePtr {
             ptr: unsafe { ffi::alloc_gpu_buffer(len) },
             len,
         };
-
-        inner.write_from(&[0u8]).unwrap();
 
         Self { inner }
     }
@@ -126,17 +126,19 @@ impl Drop for DeviceBuffer {
         {
             let inner = self.inner;
 
-            let mut lock = CACHE.lock().unwrap();
+            let mut lock = DEV_CACHE.lock().unwrap();
             lock.entry(self.len())
                 .or_insert(Vec::new())
                 .push(Self { inner });
-            return;
         }
 
-        if self.inner.is_null() {
-            return;
+        #[cfg(not(feature = "cache-buffer"))]
+        {
+            if self.inner.is_null() {
+                return;
+            }
+            unsafe { ffi::free_gpu_buffer(self.ptr().ptr()) }
         }
-        unsafe { ffi::free_gpu_buffer(self.ptr().ptr()) }
     }
 }
 
@@ -168,22 +170,52 @@ pub struct CudaLockedMemBuffer {
 }
 
 impl CudaLockedMemBuffer {
-    pub fn new(size: usize) -> Self {
-        unsafe {
+    pub fn new(len: usize) -> Self {
+        #[cfg(feature = "cache-buffer")]
+        {
+            let mut lock = LOCKED_CACHE.lock().unwrap();
+
+            let bufs = lock.entry(len).or_insert(Vec::new());
+            return bufs.pop().unwrap_or_else(|| Self::_new(len));
+        }
+
+        #[cfg(not(feature = "cache-buffer"))]
+        Self::_new(len)
+    }
+
+    pub fn _new(size: usize) -> Self {
+        let res = unsafe {
             Self {
                 inner: ffi::alloc_locked_buffer(size),
                 size,
             }
-        }
+        };
+        res
     }
 
     pub fn len(&self) -> usize {
         self.size
     }
+
+    pub fn ptr(&self) -> HostPtr {
+        HostPtr {
+            ptr: self.inner,
+            len: self.len(),
+        }
+    }
 }
 
 impl Drop for CudaLockedMemBuffer {
     fn drop(&mut self) {
+        #[cfg(feature = "cache-buffer")]
+        {
+            let mut lock = LOCKED_CACHE.lock().unwrap();
+            lock.entry(self.len())
+                .or_insert(Vec::new())
+                .push(Self { inner: self.inner, size: self.size });
+        }
+
+        #[cfg(not(feature = "cache-buffer"))]
         unsafe {
             ffi::free_locked_buffer(self.inner);
         }
@@ -199,6 +231,37 @@ impl AsMut<[u8]> for CudaLockedMemBuffer {
 impl AsRef<[u8]> for CudaLockedMemBuffer {
     fn as_ref(&self) -> &[u8] {
         unsafe { slice::from_raw_parts(self.inner, self.size) }
+    }
+}
+
+impl<T> From<&[T]> for CudaLockedMemBuffer {
+    fn from(v: &[T]) -> Self {
+        let len = std::mem::size_of::<T>() * v.len();
+        let mut buf = Self::new(len);
+
+        let src = unsafe {
+            std::slice::from_raw_parts(v.as_ptr() as *const u8, len)
+        };
+
+        buf.as_mut().copy_from_slice(src);
+
+        buf
+    }
+}
+
+
+impl<T> From<Vec<T>> for CudaLockedMemBuffer {
+    fn from(v: Vec<T>) -> Self {
+        let len = std::mem::size_of::<T>() * v.len();
+        let mut buf = Self::new(len);
+
+        let src = unsafe {
+            std::slice::from_raw_parts(v.as_ptr() as *const u8, len)
+        };
+
+        buf.as_mut().copy_from_slice(src);
+
+        buf
     }
 }
 
@@ -264,7 +327,7 @@ impl DevicePtr {
         Ok(())
     }
 
-    pub fn read_into(&mut self, dst: &mut [u8]) -> Result<()> {
+    pub fn read_into(&self, dst: &mut [u8]) -> Result<()> {
         ensure!(
             self.len() <= dst.len(),
             "length of device ptr must less than dst"
@@ -344,11 +407,3 @@ impl From<&Vec<u8>> for HostPtr {
         (&data[..]).into()
     }
 }
-
-// impl<T> From<&[T]> for HostPtr {
-//     fn from(slice: &[T]) -> Self {
-//         let ptr = slice.as_ptr() as *const u8;
-//         let len = std::mem::size_of::<T>() * slice.len();
-//         Self { ptr, len }
-//     }
-// }
