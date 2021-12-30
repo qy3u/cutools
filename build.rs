@@ -1,5 +1,7 @@
 use std::env;
 fn main() {
+    println!("cargo:rerun-if-changed=cu/tools.cu");
+
     match env::var("NVCC") {
         Ok(var) => which::which(var),
         Err(_) => which::which("nvcc"),
