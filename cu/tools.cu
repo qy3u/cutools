@@ -111,5 +111,46 @@ extern "C" {
   void check_and_sync() {
 	  CHECK_LAST_KERN();
   }
+
+  uint32_t get_device_count() {
+	  int count;
+	  cudaGetDeviceCount(&count);
+	  return (uint32_t)count;
+  }
+
+  int32_t get_device_cuda_core_count() {
+	  cudaDeviceProp devProp;
+      cudaGetDeviceProperties(&devProp, 0);
+
+	  int cores = -1;
+	  int mp = devProp.multiProcessorCount;
+
+	  switch (devProp.major){
+		  case 2: // Fermi
+			  if (devProp.minor == 1) cores = mp * 48;
+			  else cores = mp * 32;
+			  break;
+		  case 3: // Kepler
+			  cores = mp * 192;
+			  break;
+		  case 5: // Maxwell
+			  cores = mp * 128;
+			  break;
+		  case 6: // Pascal
+			  if ((devProp.minor == 1) || (devProp.minor == 2)) cores = mp * 128;
+			  else if (devProp.minor == 0) cores = mp * 64;
+			  break;
+		  case 7: // Volta and Turing
+			  if ((devProp.minor == 0) || (devProp.minor == 5)) cores = mp * 64;
+			  break;
+		  case 8: // Ampere
+			  if (devProp.minor == 0) cores = mp * 64;
+			  else if (devProp.minor == 6) cores = mp * 128;
+			  break;
+		  default:
+			  break;
+	  }
+	  return cores;
+  }
 }
 

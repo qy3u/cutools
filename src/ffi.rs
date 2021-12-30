@@ -9,8 +9,11 @@ extern "C" {
 
     // Buffer
     pub fn alloc_gpu_buffer(bytes: usize) -> *const u8;
+    #[cfg(not(feature = "cache-buffer"))]
     pub fn free_gpu_buffer(buf: *const u8);
+
     pub fn alloc_locked_buffer(bytes: usize) -> *mut u8;
+    #[cfg(not(feature = "cache-buffer"))]
     pub fn free_locked_buffer(buffer: *mut u8);
 
     // Transport
@@ -32,4 +35,6 @@ extern "C" {
     // Utils
     pub fn set_device(index: usize);
     pub fn check_and_sync();
+    pub fn get_device_count() -> u32;
+    pub fn get_device_cuda_core_count() -> i32;
 }
