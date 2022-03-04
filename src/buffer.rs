@@ -20,7 +20,7 @@ static MISS: AtomicUsize = AtomicUsize::new(0);
 
 #[cfg(feature = "cache-buffer")]
 lazy_static! {
-    static ref DEV_CACHE: Mutex<HashMap<usize, Vec<DeviceBuffer>>> = Mutex::new(HashMap::new());
+    static ref DEV_BUF_CACHE: Mutex<HashMap<usize, Vec<DeviceBuffer>>> = Mutex::new(HashMap::new());
     static ref LOCKED_CACHE: Mutex<HashMap<usize, Vec<CudaLockedMemBuffer>>> = Mutex::new(HashMap::new());
 }
 
@@ -32,7 +32,7 @@ impl DeviceBuffer {
     pub fn new(len: usize) -> Self {
         #[cfg(feature = "cache-buffer")]
         {
-            let mut lock = DEV_CACHE.lock().unwrap();
+            let mut lock = DEV_BUF_CACHE.lock().unwrap();
 
             let bufs = lock.entry(len).or_insert(Vec::new());
             return match bufs.pop() {
@@ -126,7 +126,7 @@ impl Drop for DeviceBuffer {
         {
             let inner = self.inner;
 
-            let mut lock = DEV_CACHE.lock().unwrap();
+            let mut lock = DEV_BUF_CACHE.lock().unwrap();
             lock.entry(self.len())
                 .or_insert(Vec::new())
                 .push(Self { inner });
