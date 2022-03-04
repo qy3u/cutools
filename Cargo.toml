@@ -25,3 +25,4 @@ which = "^4.0"
 default = []
 global-stream = ["lazy_static", "waitpool"]
 cache-buffer = ["lazy_static", "log"]
+per-thread-stream = []
