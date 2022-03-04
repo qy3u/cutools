@@ -3,17 +3,22 @@ use std::ffi::c_void;
 use crate::ffi::{create_stream, destory_stream, get_inner_stream, wait_stream};
 
 #[cfg(feature = "global-stream")]
-use lazy_static::lazy_static;
+use {lazy_static::lazy_static, waitpool::Pooled};
 
 #[cfg(feature = "global-stream")]
-use waitpool::Pooled;
+const CUTOOLS_STREAM_POOL_NUM: &str = "CUTOOLS_STREAM_POOL_NUM";
 
 #[cfg(feature = "global-stream")]
 lazy_static! {
-    pub static ref DEFAULT_STREAM: Stream = Stream::new();
     static ref STREAM_POOL: waitpool::Pool<Stream> = {
         let mut pool = waitpool::Pool::new();
-        for _ in 0..14 {
+
+        let stream_num = std::env::var(CUTOOLS_STREAM_POOL_NUM)
+            .unwrap_or("16".into())
+            .parse::<usize>()
+            .expect(&format!("parse {} to usize failed", CUTOOLS_STREAM_POOL_NUM));
+
+        for _ in 0..stream_num {
             pool.pool(Stream::new());
         }
         pool
