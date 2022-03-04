@@ -58,6 +58,10 @@ extern "C" {
     cudaStreamSynchronize(s->get());
   }
 
+  void wait_default_stream() {
+    cudaStreamSynchronize(0);
+  }
+
   void* get_inner_stream(void* stream) {
     StreamWraper* s = (StreamWraper*)stream;
 	return (void*)&s->stream;

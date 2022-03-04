@@ -1,6 +1,6 @@
 use std::ffi::c_void;
 
-use crate::ffi::{create_stream, destory_stream, get_inner_stream, wait_stream};
+use crate::ffi::{create_stream, destory_stream, get_inner_stream, wait_stream, wait_default_stream};
 
 #[cfg(feature = "global-stream")]
 use {lazy_static::lazy_static, waitpool::Pooled};
@@ -34,6 +34,10 @@ impl Stream {
 
     pub fn wait(&self) {
         unsafe { wait_stream(self.ptr()) };
+    }
+
+    pub fn wait_default() {
+        unsafe { wait_default_stream() };
     }
 
     pub fn ptr(&self) -> *const c_void {

@@ -5,6 +5,7 @@ extern "C" {
     pub fn create_stream() -> *const c_void;
     pub fn destory_stream(stream: *const c_void);
     pub fn wait_stream(stream: *const c_void);
+    pub fn wait_default_stream();
     pub fn get_inner_stream(stream: *const c_void) -> *const c_void;
 
     // Buffer
