@@ -32,19 +32,33 @@ impl DeviceBuffer {
     pub fn new(len: usize) -> Self {
         #[cfg(feature = "cache-buffer")]
         {
-            let mut lock = DEV_BUF_CACHE.lock().unwrap();
+            let mut guard = DEV_BUF_CACHE.lock().unwrap();
 
-            let bufs = lock.entry(len).or_insert(Vec::new());
+            let bufs = guard.entry(len).or_insert(Vec::new());
             return match bufs.pop() {
                 Some(buf) => {
-                    let hit = HIT.fetch_add(1, Ordering::Relaxed) + 1;
-                    if hit % 1000 == 0 {
-                        let miss = MISS.load(Ordering::Relaxed);
-                        log::trace!("device buffer cache hit: {}, miss: {}", hit, miss);
+                    #[cfg(feature = "trace")]
+                    {
+                        let hit = HIT.fetch_add(1, Ordering::Relaxed) + 1;
+                        if hit % 1000 == 0 {
+                            let miss = MISS.load(Ordering::Relaxed);
+                            log::trace!("device buffer cache hit: {}, miss: {}", hit, miss);
+                        }
                     }
+
                     buf
                 }
-                None => Self::_new(len),
+                None => {
+                    #[cfg(feature = "trace")]
+                    {
+                        MISS.fetch_add(1, Ordering::Relaxed);
+                        log::trace!("miss device buffer for size: {}bytes", len);
+                        let stat = guard.iter().map(|(k, v)| format!("{} * {}bytes", v.len(), k)).collect::<Vec<String>>().join(",");
+                        log::trace!("current cached buffers: {}", stat);
+                    }
+
+                    Self::_new(len)
+                },
             };
         }
 
@@ -53,9 +67,6 @@ impl DeviceBuffer {
     }
 
     fn _new(len: usize) -> Self {
-        #[cfg(feature = "cache-buffer")]
-        MISS.fetch_add(1, Ordering::Relaxed);
-
         let inner = DevicePtr {
             ptr: unsafe { ffi::alloc_gpu_buffer(len) },
             len,
