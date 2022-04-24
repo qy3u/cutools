@@ -21,7 +21,8 @@ static MISS: AtomicUsize = AtomicUsize::new(0);
 #[cfg(feature = "cache-buffer")]
 lazy_static! {
     static ref DEV_BUF_CACHE: Mutex<HashMap<usize, Vec<DeviceBuffer>>> = Mutex::new(HashMap::new());
-    static ref LOCKED_CACHE: Mutex<HashMap<usize, Vec<CudaLockedMemBuffer>>> = Mutex::new(HashMap::new());
+    static ref LOCKED_CACHE: Mutex<HashMap<usize, Vec<CudaLockedMemBuffer>>> =
+        Mutex::new(HashMap::new());
 }
 
 pub struct DeviceBuffer {
@@ -53,12 +54,16 @@ impl DeviceBuffer {
                     {
                         MISS.fetch_add(1, Ordering::Relaxed);
                         log::trace!("miss device buffer for size: {}bytes", len);
-                        let stat = guard.iter().map(|(k, v)| format!("{} * {}bytes", v.len(), k)).collect::<Vec<String>>().join(",");
+                        let stat = guard
+                            .iter()
+                            .map(|(k, v)| format!("{} * {}bytes", v.len(), k))
+                            .collect::<Vec<String>>()
+                            .join(",");
                         log::trace!("current cached buffers: {}", stat);
                     }
 
                     Self::_new(len)
-                },
+                }
             };
         }
 
@@ -75,7 +80,7 @@ impl DeviceBuffer {
         Self { inner }
     }
 
-    fn _null() -> Self {
+    pub const fn null() -> Self {
         Self {
             inner: DevicePtr::null(),
         }
@@ -221,9 +226,10 @@ impl Drop for CudaLockedMemBuffer {
         #[cfg(feature = "cache-buffer")]
         {
             let mut lock = LOCKED_CACHE.lock().unwrap();
-            lock.entry(self.len())
-                .or_insert(Vec::new())
-                .push(Self { inner: self.inner, size: self.size });
+            lock.entry(self.len()).or_insert(Vec::new()).push(Self {
+                inner: self.inner,
+                size: self.size,
+            });
         }
 
         #[cfg(not(feature = "cache-buffer"))]
@@ -250,9 +256,7 @@ impl<T> From<&[T]> for CudaLockedMemBuffer {
         let len = std::mem::size_of::<T>() * v.len();
         let mut buf = Self::new(len);
 
-        let src = unsafe {
-            std::slice::from_raw_parts(v.as_ptr() as *const u8, len)
-        };
+        let src = unsafe { std::slice::from_raw_parts(v.as_ptr() as *const u8, len) };
 
         buf.as_mut().copy_from_slice(src);
 
@@ -260,15 +264,12 @@ impl<T> From<&[T]> for CudaLockedMemBuffer {
     }
 }
 
-
 impl<T> From<Vec<T>> for CudaLockedMemBuffer {
     fn from(v: Vec<T>) -> Self {
         let len = std::mem::size_of::<T>() * v.len();
         let mut buf = Self::new(len);
 
-        let src = unsafe {
-            std::slice::from_raw_parts(v.as_ptr() as *const u8, len)
-        };
+        let src = unsafe { std::slice::from_raw_parts(v.as_ptr() as *const u8, len) };
 
         buf.as_mut().copy_from_slice(src);
 
@@ -304,7 +305,7 @@ impl DevicePtr {
         }
     }
 
-    pub fn null() -> Self {
+    pub const fn null() -> Self {
         Self {
             ptr: std::ptr::null(),
             len: 0,
