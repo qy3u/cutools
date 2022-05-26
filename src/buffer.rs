@@ -420,7 +420,10 @@ impl<T: Copy> From<&[T]> for HostPtr {
         let slice =
             unsafe { std::slice::from_raw_parts(&data[0] as *const T as *const u8, len * width) };
 
-        slice.into()
+        Self {
+            ptr: slice.as_ptr(),
+            len: slice.len(),
+        }
     }
 }
 
@@ -433,6 +436,9 @@ impl<T: Copy> From<&mut [T]> for HostPtr {
         let slice =
             unsafe { std::slice::from_raw_parts(&data[0] as *const T as *const u8, len * width) };
 
-        slice.into()
+        Self {
+            ptr: slice.as_ptr(),
+            len: slice.len(),
+        }
     }
 }
