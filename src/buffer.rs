@@ -396,8 +396,8 @@ impl AsMut<[u8]> for HostPtr {
     }
 }
 
-impl From<&Vec<u8>> for HostPtr {
-    fn from(data: &Vec<u8>) -> Self {
+impl<T: Copy> From<&Vec<T>> for HostPtr {
+    fn from(data: &Vec<T>) -> Self {
         (&data[..]).into()
     }
 }
