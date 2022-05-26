@@ -382,6 +382,15 @@ impl HostPtr {
     pub fn len(&self) -> usize {
         self.len
     }
+
+    pub unsafe fn to_owned(&self) -> Vec<u8> {
+        let slice = std::slice::from_raw_parts(self.ptr, self.len);
+
+        let mut v = vec![0; self.len];
+        v.copy_from_slice(slice);
+
+        v
+    }
 }
 
 impl AsRef<[u8]> for HostPtr {
