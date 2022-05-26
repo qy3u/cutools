@@ -396,26 +396,34 @@ impl AsMut<[u8]> for HostPtr {
     }
 }
 
-impl From<&[u8]> for HostPtr {
-    fn from(slice: &[u8]) -> Self {
-        Self {
-            ptr: slice.as_ptr(),
-            len: slice.len(),
-        }
-    }
-}
-
-impl From<&mut [u8]> for HostPtr {
-    fn from(slice: &mut [u8]) -> Self {
-        Self {
-            ptr: slice.as_ptr(),
-            len: slice.len(),
-        }
-    }
-}
-
 impl From<&Vec<u8>> for HostPtr {
     fn from(data: &Vec<u8>) -> Self {
         (&data[..]).into()
+    }
+}
+
+impl<T: Copy> From<&[T]> for HostPtr {
+    fn from(data: &[T]) -> Self {
+        let len = data.len();
+        assert_ne!(len, 0, "convert an empty slice into HostPtr");
+
+        let width = std::mem::size_of::<T>();
+        let slice =
+            unsafe { std::slice::from_raw_parts(&data[0] as *const T as *const u8, len * width) };
+
+        slice.into()
+    }
+}
+
+impl<T: Copy> From<&mut [T]> for HostPtr {
+    fn from(data: &mut [T]) -> Self {
+        let len = data.len();
+        assert_ne!(len, 0, "convert an empty slice into HostPtr");
+
+        let width = std::mem::size_of::<T>();
+        let slice =
+            unsafe { std::slice::from_raw_parts(&data[0] as *const T as *const u8, len * width) };
+
+        slice.into()
     }
 }
