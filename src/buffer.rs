@@ -8,14 +8,16 @@ use crate::stream::Stream;
 #[cfg(feature = "cache-buffer")]
 use {
     lazy_static::lazy_static,
-    std::sync::atomic::{AtomicUsize, Ordering},
     std::{collections::HashMap, sync::Mutex},
 };
 
-#[cfg(feature = "cache-buffer")]
+#[cfg(feature = "trace")]
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+#[cfg(feature = "trace")]
 static HIT: AtomicUsize = AtomicUsize::new(0);
 
-#[cfg(feature = "cache-buffer")]
+#[cfg(feature = "trace")]
 static MISS: AtomicUsize = AtomicUsize::new(0);
 
 #[cfg(feature = "cache-buffer")]
@@ -141,6 +143,9 @@ impl Drop for DeviceBuffer {
         #[cfg(feature = "cache-buffer")]
         {
             let inner = self.inner;
+            unsafe {
+                ffi::cu_memset(self.inner.ptr , 0, self.len());
+            }
 
             let mut lock = DEV_BUF_CACHE.lock().unwrap();
             lock.entry(self.len())
@@ -225,6 +230,10 @@ impl Drop for CudaLockedMemBuffer {
     fn drop(&mut self) {
         #[cfg(feature = "cache-buffer")]
         {
+            for v in self.as_mut() {
+                *v = 0;
+            }
+
             let mut lock = LOCKED_CACHE.lock().unwrap();
             lock.entry(self.len()).or_insert(Vec::new()).push(Self {
                 inner: self.inner,

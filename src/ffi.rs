@@ -17,6 +17,9 @@ extern "C" {
     #[cfg(not(feature = "cache-buffer"))]
     pub fn free_locked_buffer(buffer: *mut u8);
 
+    #[cfg(feature = "cache-buffer")]
+    pub fn cu_memset(dev_ptr: *const u8, value: u8, count: usize);
+
     // Transport
     pub fn host_to_device(host: *const u8, device: *const u8, bytes: usize);
     pub fn device_to_host(device: *const u8, host: *const u8, bytes: usize);

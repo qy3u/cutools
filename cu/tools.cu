@@ -156,5 +156,9 @@ extern "C" {
 	  }
 	  return cores;
   }
+
+  void cu_memset(uint8_t* devPtr, uint8_t value, size_t count) {
+    CHECK(cudaMemset((void*)devPtr, value, count));
+  }
 }
 
