@@ -64,14 +64,12 @@ extern "C" {
 
   void* get_inner_stream(void* stream) {
     StreamWraper* s = (StreamWraper*)stream;
-	return (void*)&s->stream;
+	  return (void*)&s->stream;
   }
-  
+
   uint8_t* alloc_locked_buffer(uint32_t bytes) {
     uint8_t* buffer;
-
     CHECK(cudaMallocHost(&buffer, bytes));
-
     return buffer;
   }
 
@@ -92,14 +90,26 @@ extern "C" {
     CHECK( cudaMemcpyAsync(host, device, bytes, cudaMemcpyDeviceToHost, s->get()) );
   }
 
-
-  void host_to_device(uint8_t* host, uint8_t* device, uint32_t bytes) {
+  void host_to_device(uint8_t* host, uint8_t* device, size_t bytes) {
     CHECK(cudaMemcpy(device, host, bytes, cudaMemcpyHostToDevice));
+  }
+
+  void host_to_device_2d(uint8_t* host, uint8_t* device,
+                         size_t hostPitch, size_t devPitch,
+                         size_t width, size_t height) {
+    CHECK(cudaMemcpy2D(device, devPitch, host, hostPitch, width, height, cudaMemcpyHostToDevice));
   }
 
   void host_to_device_with_stream(uint8_t* host, uint8_t* device, uint32_t bytes, void* stream) {
     StreamWraper* s = (StreamWraper*)stream;
     CHECK( cudaMemcpyAsync(device, host, bytes, cudaMemcpyHostToDevice, s->get()) );
+  }
+
+  void host_to_device_2d_with_stream(uint8_t* host, uint8_t* device,
+                         size_t hostPitch, size_t devPitch,
+                         size_t width, size_t height, void* stream) {
+    StreamWraper* s = (StreamWraper*)stream;
+    CHECK(cudaMemcpy2DAsync(device, devPitch, host, hostPitch, width, height, cudaMemcpyHostToDevice, s->get()));
   }
 
   uint8_t* alloc_gpu_buffer(uint32_t bytes) {

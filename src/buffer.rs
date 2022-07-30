@@ -100,6 +100,23 @@ impl DeviceBuffer {
         buf
     }
 
+    pub fn from_slice_padded<T>(s: &[T], dev_pitch: usize) -> Self {
+        assert!(s.len() > 0);
+        let src_pitch = std::mem::size_of::<T>();
+        assert!(dev_pitch >= src_pitch, "dev_pitch <= src_pitch");
+
+        let len = dev_pitch * s.len();
+
+        let width = src_pitch;
+        let height = s.len();
+
+        let buf = Self::new(len);
+        let s = unsafe { std::slice::from_raw_parts(&s[0] as *const T as *const u8, len) };
+
+        buf.ptr().write_from_2d(s, src_pitch, dev_pitch, width, height).unwrap();
+        buf
+    }
+
     pub fn from_slice_with_stream<T>(s: &[T], stream: &Stream) -> Self {
         assert!(s.len() > 0);
 
@@ -336,6 +353,31 @@ impl DevicePtr {
         Ok(())
     }
 
+    pub fn write_from_2d(
+        &mut self,
+        src: &[u8],
+        src_pitch: usize,
+        dev_pitch: usize,
+        width: usize,
+        height: usize
+    ) -> Result<()> {
+        ensure!(
+            src.len() % src_pitch == 0,
+            "invalid src and src_pitch"
+        );
+
+        ensure!(
+            src.len() / src_pitch * dev_pitch <= self.len(),
+            "expected length must less than device ptr"
+        );
+
+        unsafe {
+            ffi::host_to_device_2d(src.as_ptr(), self.ptr, src_pitch, dev_pitch, width, height);
+        }
+
+        Ok(())
+    }
+
     pub fn write_from_with_stream(&mut self, src: &[u8], stream: &Stream) -> Result<()> {
         ensure!(
             src.len() <= self.len(),
@@ -345,6 +387,32 @@ impl DevicePtr {
         unsafe {
             ffi::host_to_device_with_stream(src.as_ptr(), self.ptr, src.len(), stream.ptr());
         }
+        Ok(())
+    }
+
+    pub fn write_from_2d_with_stream(
+        &mut self,
+        src: &[u8],
+        src_pitch: usize,
+        dev_pitch: usize,
+        width: usize,
+        height: usize,
+        stream: &Stream,
+    ) -> Result<()> {
+        ensure!(
+            src.len() % src_pitch == 0,
+            "invalid src and src_pitch"
+        );
+
+        ensure!(
+            src.len() / src_pitch * dev_pitch <= self.len(),
+            "expected length must less than device ptr"
+        );
+
+        unsafe {
+            ffi::host_to_device_2d_with_stream(src.as_ptr(), self.ptr, src_pitch, dev_pitch, width, height, stream.ptr());
+        }
+
         Ok(())
     }
 

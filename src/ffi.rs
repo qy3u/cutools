@@ -36,6 +36,12 @@ extern "C" {
         stream: *const c_void,
     );
 
+    pub fn host_to_device_2d(host: *const u8, device: *const u8,
+        host_pitch: usize, dev_pitch: usize, width: usize, height: usize);
+
+    pub fn host_to_device_2d_with_stream(host: *const u8, device: *const u8,
+        host_pitch: usize, dev_pitch: usize, width: usize, height: usize, stream: *const c_void);
+
     // Utils
     pub fn set_device(index: usize);
     pub fn check_and_sync();
