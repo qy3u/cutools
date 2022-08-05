@@ -88,6 +88,12 @@ impl DeviceBuffer {
         }
     }
 
+    pub fn reset(&mut self) {
+        unsafe {
+            ffi::cu_memset(self.inner.ptr , 0, self.len());
+        }
+    }
+
     pub fn from_slice<T>(s: &[T]) -> Self {
         assert!(s.len() > 0);
 
@@ -159,11 +165,9 @@ impl Drop for DeviceBuffer {
     fn drop(&mut self) {
         #[cfg(feature = "cache-buffer")]
         {
-            let inner = self.inner;
-            unsafe {
-                ffi::cu_memset(self.inner.ptr , 0, self.len());
-            }
+            self.reset();
 
+            let inner = self.inner;
             let mut lock = DEV_BUF_CACHE.lock().unwrap();
             lock.entry(self.len())
                 .or_insert(Vec::new())
@@ -241,16 +245,16 @@ impl CudaLockedMemBuffer {
             len: self.len(),
         }
     }
+
+    pub fn reset(&mut self) {
+        self.as_mut().fill(0);
+    }
 }
 
 impl Drop for CudaLockedMemBuffer {
     fn drop(&mut self) {
         #[cfg(feature = "cache-buffer")]
         {
-            for v in self.as_mut() {
-                *v = 0;
-            }
-
             let mut lock = LOCKED_CACHE.lock().unwrap();
             lock.entry(self.len()).or_insert(Vec::new()).push(Self {
                 inner: self.inner,
