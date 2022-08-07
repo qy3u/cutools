@@ -255,6 +255,8 @@ impl Drop for CudaLockedMemBuffer {
     fn drop(&mut self) {
         #[cfg(feature = "cache-buffer")]
         {
+            self.reset();
+
             let mut lock = LOCKED_CACHE.lock().unwrap();
             lock.entry(self.len()).or_insert(Vec::new()).push(Self {
                 inner: self.inner,
