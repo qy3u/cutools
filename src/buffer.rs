@@ -150,14 +150,27 @@ impl DeviceBuffer {
     pub fn load(&self) -> Vec<u8> {
         let mut res = vec![0u8; self.len()];
         self.read_into((&mut res[..]).into()).unwrap();
-        return res;
+        res
+    }
+
+    pub fn load_to_locked_mem(&self) -> CudaLockedMemBuffer {
+        let res = CudaLockedMemBuffer::new(self.len());
+        self.read_into(res.ptr()).unwrap();
+        res
     }
 
     pub fn load_with_stream(&self, stream: &Stream) -> Vec<u8> {
         let mut res = vec![0u8; self.len()];
         self.read_into_with_stream((&mut res[..]).into(), stream)
             .unwrap();
-        return res;
+        res
+    }
+
+    pub fn load_to_locked_mem_with_stream(&self, stream: &Stream) -> CudaLockedMemBuffer {
+        let res = CudaLockedMemBuffer::new(self.len());
+        self.read_into_with_stream(res.ptr(), stream)
+            .unwrap();
+        res
     }
 }
 
