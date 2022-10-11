@@ -132,12 +132,18 @@ extern "C" {
 	  return (uint32_t)count;
   }
 
-  int32_t get_device_cuda_core_count() {
+  uint32_t get_sm_count() {
 	  cudaDeviceProp devProp;
-      cudaGetDeviceProperties(&devProp, 0);
+    cudaGetDeviceProperties(&devProp, 0);
+	  return devProp.multiProcessorCount;
+  }
 
-	  int cores = -1;
-	  int mp = devProp.multiProcessorCount;
+  uint32_t get_device_cuda_core_count() {
+	  uint32_t cores = 0;
+
+	  cudaDeviceProp devProp;
+    cudaGetDeviceProperties(&devProp, 0);
+    uint32_t mp = devProp.multiProcessorCount;
 
 	  switch (devProp.major){
 		  case 2: // Fermi

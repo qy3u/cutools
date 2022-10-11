@@ -1,14 +1,21 @@
+use anyhow::{Result, bail};
+
 use crate::ffi;
 
-pub fn get_device_count() -> u32 {
-    unsafe { ffi::get_device_count() }
+pub fn device_count() -> usize {
+    unsafe { ffi::get_device_count() as usize }
 }
 
-pub fn get_device_cuda_core_count() -> u32 {
+pub fn sm_count() -> usize {
+    unsafe { ffi::get_sm_count() as usize }
+}
+
+pub fn cuda_core_count() -> Result<usize> {
     let count = unsafe { ffi::get_device_cuda_core_count() };
-    if count == -1 {
-        panic!("Unknown device type");
+    if count == 0 {
+        bail!("Unknown device type");
     }
 
-    count as u32
+
+    Ok(count as usize)
 }

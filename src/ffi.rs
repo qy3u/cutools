@@ -42,8 +42,11 @@ extern "C" {
         host_pitch: usize, dev_pitch: usize, width: usize, height: usize, stream: *const c_void);
 
     // Utils
-    pub fn set_device(index: usize);
     pub fn check_and_sync();
+
+    // Device
+    pub fn set_device(index: usize);
     pub fn get_device_count() -> u32;
-    pub fn get_device_cuda_core_count() -> i32;
+    pub fn get_sm_count() -> u32;
+    pub fn get_device_cuda_core_count() -> u32;
 }
