@@ -30,7 +30,7 @@ fn main() {
         .flag("-gencode")
         .flag("arch=compute_60,code=sm_60");
 
-    if cfg!(feature = "per-thread-stream") {
+    if cfg!(feature = "stream-per-thread") {
         builder.flag("--default-stream").flag("per-thread");
     }
 

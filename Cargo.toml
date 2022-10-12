@@ -1,6 +1,6 @@
 [package]
 name = "cutools"
-version = "0.6.0"
+version = "0.6.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -22,8 +22,8 @@ which = "^4.0"
 
 
 [features]
-default = []
+default = ["stream-per-thread"]
 global-stream = ["lazy_static", "waitpool"]
 cache-buffer = ["lazy_static"]
-per-thread-stream = []
+stream-per-thread = []
 trace = ["log"]
