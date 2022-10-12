@@ -1,6 +1,7 @@
+mod ffi;
+
 pub mod buffer;
 pub mod device;
-mod ffi;
 pub mod stream;
 pub mod utils;
 

@@ -46,6 +46,7 @@ extern "C" {
 
     // Device
     pub fn set_device(index: usize);
+    pub fn set_device_flags(flags: u32);
     pub fn get_device_count() -> u32;
     pub fn get_sm_count() -> u32;
     pub fn get_device_cuda_core_count() -> u32;

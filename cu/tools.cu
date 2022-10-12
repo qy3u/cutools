@@ -81,6 +81,10 @@ extern "C" {
     CHECK(cudaSetDevice(index));
   }
 
+  void set_device_flags(uint32_t flags) {
+    CHECK(cudaSetDeviceFlags(flags))
+  }
+
   void device_to_host(uint8_t* device, uint8_t* host, size_t bytes) {
     CHECK(cudaMemcpy(host, device, bytes, cudaMemcpyDeviceToHost));
   }
