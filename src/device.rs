@@ -2,7 +2,6 @@ use anyhow::{Result, bail};
 
 use crate::ffi;
 
-
 // cudaDeviceScheduleAuto: u32 = 0;
 // cudaDeviceScheduleSpin: u32 = 1;
 // cudaDeviceScheduleYield: u32 = 2;
@@ -33,6 +32,19 @@ pub fn cuda_core_count() -> Result<usize> {
         bail!("Unknown device type");
     }
 
-
     Ok(count as usize)
+}
+
+pub fn set_device(index: usize) {
+    assert!(index < device_count(), "invalid index for set device: {}", index);
+
+    unsafe {
+        ffi::set_device(index); // always set to the first device
+    }
+}
+
+pub fn check_and_sync() {
+    unsafe {
+        ffi::check_and_sync();
+    }
 }
