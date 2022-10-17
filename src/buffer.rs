@@ -172,6 +172,13 @@ impl DeviceBuffer {
             .unwrap();
         res
     }
+
+    pub fn load_as<T: Copy + Default>(&self) -> Vec<T> {
+        assert_eq!(self.len() % std::mem::size_of::<T>(), 0);
+        let mut res = vec![T::default(); self.len()/ std::mem::size_of::<T>()];
+        self.read_into((&mut res[..]).into()).unwrap();
+        res
+    }
 }
 
 impl Drop for DeviceBuffer {
