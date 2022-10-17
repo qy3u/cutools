@@ -130,6 +130,19 @@ extern "C" {
 	  CHECK_LAST_KERN();
   }
 
+  void sync_device() {
+    cudaDeviceSynchronize();
+  }
+
+  uint32_t get_last_error() {
+    const cudaError_t error=cudaGetLastError();
+    return (uint32_t)(error);
+  }
+
+  const char* get_error_string(uint32_t error_code) {
+    return cudaGetErrorString((cudaError_t)error_code);
+  }
+
   uint32_t get_device_count() {
 	  int count;
 	  cudaGetDeviceCount(&count);

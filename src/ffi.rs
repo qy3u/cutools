@@ -1,4 +1,4 @@
-use std::ffi::c_void;
+use std::ffi::{c_void, c_char};
 
 extern "C" {
     // Stream
@@ -41,13 +41,16 @@ extern "C" {
     pub fn host_to_device_2d_with_stream(host: *const u8, device: *const u8,
         host_pitch: usize, dev_pitch: usize, width: usize, height: usize, stream: *const c_void);
 
-    // Utils
-    pub fn check_and_sync();
-
     // Device
     pub fn set_device(index: usize);
     pub fn set_device_flags(flags: u32);
     pub fn get_device_count() -> u32;
     pub fn get_sm_count() -> u32;
     pub fn get_device_cuda_core_count() -> u32;
+    pub fn sync_device();
+
+    #[allow(dead_code)] // used in macro
+    pub fn get_last_error() -> u32;
+    #[allow(dead_code)] // used in macro
+    pub fn get_error_string(code: u32) -> *const c_char;
 }
