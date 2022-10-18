@@ -131,7 +131,11 @@ extern "C" {
   }
 
   void sync_device() {
-    cudaDeviceSynchronize();
+    CHECK(cudaDeviceSynchronize());
+  }
+
+  void reset_device() {
+    CHECK(cudaDeviceReset());
   }
 
   uint32_t get_last_error() {

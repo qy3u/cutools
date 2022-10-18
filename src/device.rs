@@ -47,17 +47,22 @@ pub fn sync() {
     unsafe { ffi::sync_device() }
 }
 
-#[macro_export]
-macro_rules! check_last_error {
-    () => {
-        let code = unsafe { crate::ffi::get_last_error() };
-        if code != 0 {
-            let err_msg = unsafe {
-                std::ffi::CStr::from_ptr(crate::ffi::get_error_string(code))
-            };
-            panic!("{}", err_msg.to_str().unwrap())
-        }
-    };
+pub fn check_and_sync() {
+    unsafe { ffi::check_and_sync() }
 }
 
-pub use check_last_error;
+pub fn get_last_error() -> Result<(), String> {
+    let code = unsafe { crate::ffi::get_last_error() };
+    if code != 0 {
+        let err_msg = unsafe {
+            std::ffi::CStr::from_ptr(crate::ffi::get_error_string(code))
+        };
+        Err(err_msg.to_str().unwrap().to_owned())
+    } else {
+        Ok(())
+    }
+}
+
+pub fn reset() {
+    unsafe { ffi::reset_device() }
+}

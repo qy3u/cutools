@@ -48,9 +48,9 @@ extern "C" {
     pub fn get_sm_count() -> u32;
     pub fn get_device_cuda_core_count() -> u32;
     pub fn sync_device();
+    pub fn check_and_sync();
 
-    #[allow(dead_code)] // used in macro
     pub fn get_last_error() -> u32;
-    #[allow(dead_code)] // used in macro
     pub fn get_error_string(code: u32) -> *const c_char;
+    pub fn reset_device();
 }
