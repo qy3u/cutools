@@ -1,4 +1,4 @@
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 
 use crate::ffi;
 
@@ -19,7 +19,7 @@ pub fn count() -> usize {
 }
 
 pub fn set_sync_mode(mode: SyncMode) {
-    unsafe { ffi::set_device_flags(mode as u32)}
+    unsafe { ffi::set_device_flags(mode as u32) }
 }
 
 pub fn sm_count() -> usize {
@@ -54,9 +54,7 @@ pub fn check_and_sync() {
 pub fn get_last_error() -> Result<(), String> {
     let code = unsafe { crate::ffi::get_last_error() };
     if code != 0 {
-        let err_msg = unsafe {
-            std::ffi::CStr::from_ptr(crate::ffi::get_error_string(code))
-        };
+        let err_msg = unsafe { std::ffi::CStr::from_ptr(crate::ffi::get_error_string(code)) };
         Err(err_msg.to_str().unwrap().to_owned())
     } else {
         Ok(())

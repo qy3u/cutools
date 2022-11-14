@@ -1,6 +1,8 @@
 use std::ffi::c_void;
 
-use crate::ffi::{create_stream, destory_stream, get_inner_stream, wait_stream, wait_default_stream};
+use crate::ffi::{
+    create_stream, destory_stream, get_inner_stream, wait_default_stream, wait_stream,
+};
 
 pub struct Stream(*const c_void);
 

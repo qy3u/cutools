@@ -12,10 +12,7 @@ fn main() {
 
     let mut builder = cc::Build::new();
 
-    builder
-        .cuda(true)
-        .cudart("static")
-        .file(&source_path);
+    builder.cuda(true).cudart("static").file(&source_path);
 
     builder
         .flag("--gpu-architecture=sm_86")

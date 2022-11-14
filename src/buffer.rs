@@ -26,7 +26,7 @@ impl DeviceBuffer {
 
     pub fn reset(&mut self) {
         unsafe {
-            ffi::cu_memset(self.inner.ptr , 0, self.len());
+            ffi::cu_memset(self.inner.ptr, 0, self.len());
         }
     }
 
@@ -55,7 +55,9 @@ impl DeviceBuffer {
         let buf = Self::new(len);
         let s = unsafe { std::slice::from_raw_parts(&s[0] as *const T as *const u8, len) };
 
-        buf.ptr().write_from_2d(s, src_pitch, dev_pitch, width, height).unwrap();
+        buf.ptr()
+            .write_from_2d(s, src_pitch, dev_pitch, width, height)
+            .unwrap();
         buf
     }
 
@@ -246,12 +248,9 @@ impl DevicePtr {
         src_pitch: usize,
         dev_pitch: usize,
         width: usize,
-        height: usize
+        height: usize,
     ) -> Result<()> {
-        ensure!(
-            src.len() % src_pitch == 0,
-            "invalid src and src_pitch"
-        );
+        ensure!(src.len() % src_pitch == 0, "invalid src and src_pitch");
 
         ensure!(
             src.len() / src_pitch * dev_pitch <= self.len(),
@@ -282,9 +281,7 @@ impl DevicePtr {
             "DevicePtr copy_from: length of src and dst must be euqal"
         );
 
-        unsafe {
-            ffi::device_to_device(self.ptr_mut(), src.ptr(), src.len())
-        }
+        unsafe { ffi::device_to_device(self.ptr_mut(), src.ptr(), src.len()) }
 
         Ok(())
     }

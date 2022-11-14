@@ -1,4 +1,4 @@
-use std::ffi::{c_void, c_char};
+use std::ffi::{c_char, c_void};
 
 extern "C" {
     // Stream
@@ -20,8 +20,14 @@ extern "C" {
     // Transport
     pub fn host_to_device(host: *const u8, device: *const u8, bytes: usize);
     pub fn device_to_host(device: *const u8, host: *const u8, bytes: usize);
-    pub fn host_to_device_2d(host: *const u8, device: *const u8,
-        host_pitch: usize, dev_pitch: usize, width: usize, height: usize);
+    pub fn host_to_device_2d(
+        host: *const u8,
+        device: *const u8,
+        host_pitch: usize,
+        dev_pitch: usize,
+        width: usize,
+        height: usize,
+    );
     pub fn device_to_device(dst: *mut u8, src: *const u8, bytes: usize);
 
     // Device
