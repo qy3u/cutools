@@ -275,7 +275,22 @@ impl DevicePtr {
         }
         Ok(())
     }
+
+    pub fn copy_from(&mut self, src: DevicePtr) -> Result<()> {
+        ensure!(
+            src.len() == self.len(),
+            "DevicePtr copy_from: length of src and dst must be euqal"
+        );
+
+        unsafe {
+            ffi::device_to_device(self.ptr_mut(), src.ptr(), src.len())
+        }
+
+        Ok(())
+    }
 }
+
+unsafe impl Send for DevicePtr {}
 
 #[derive(Clone, Copy)]
 pub struct HostPtr {
@@ -283,7 +298,6 @@ pub struct HostPtr {
     len: usize,
 }
 
-unsafe impl Send for DevicePtr {}
 unsafe impl Send for HostPtr {}
 
 impl HostPtr {

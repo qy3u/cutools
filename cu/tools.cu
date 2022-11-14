@@ -93,6 +93,10 @@ extern "C" {
     CHECK(cudaMemcpy(device, host, bytes, cudaMemcpyHostToDevice));
   }
 
+  void device_to_device(uint8_t* dst, uint8_t* src, size_t bytes) {
+    CHECK(cudaMemcpy(dst, src, bytes, cudaMemcpyDeviceToDevice));
+  }
+
   void host_to_device_2d(uint8_t* host, uint8_t* device,
                          size_t hostPitch, size_t devPitch,
                          size_t width, size_t height) {
