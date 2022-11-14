@@ -3,29 +3,6 @@ use std::slice;
 use anyhow::{ensure, Result};
 
 use crate::ffi;
-use crate::stream::Stream;
-
-#[cfg(feature = "cache-buffer")]
-use {
-    lazy_static::lazy_static,
-    std::{collections::HashMap, sync::Mutex},
-};
-
-#[cfg(feature = "trace")]
-use std::sync::atomic::{AtomicUsize, Ordering};
-
-#[cfg(feature = "trace")]
-static HIT: AtomicUsize = AtomicUsize::new(0);
-
-#[cfg(feature = "trace")]
-static MISS: AtomicUsize = AtomicUsize::new(0);
-
-#[cfg(feature = "cache-buffer")]
-lazy_static! {
-    static ref DEV_BUF_CACHE: Mutex<HashMap<usize, Vec<DeviceBuffer>>> = Mutex::new(HashMap::new());
-    static ref LOCKED_CACHE: Mutex<HashMap<usize, Vec<CudaLockedMemBuffer>>> =
-        Mutex::new(HashMap::new());
-}
 
 pub struct DeviceBuffer {
     inner: DevicePtr,
@@ -33,47 +10,6 @@ pub struct DeviceBuffer {
 
 impl DeviceBuffer {
     pub fn new(len: usize) -> Self {
-        #[cfg(feature = "cache-buffer")]
-        {
-            let mut guard = DEV_BUF_CACHE.lock().unwrap();
-
-            let bufs = guard.entry(len).or_insert(Vec::new());
-            return match bufs.pop() {
-                Some(buf) => {
-                    #[cfg(feature = "trace")]
-                    {
-                        let hit = HIT.fetch_add(1, Ordering::Relaxed) + 1;
-                        if hit % 1000 == 0 {
-                            let miss = MISS.load(Ordering::Relaxed);
-                            log::trace!("device buffer cache hit: {}, miss: {}", hit, miss);
-                        }
-                    }
-
-                    buf
-                }
-                None => {
-                    #[cfg(feature = "trace")]
-                    {
-                        MISS.fetch_add(1, Ordering::Relaxed);
-                        log::trace!("miss device buffer for size: {}bytes", len);
-                        let stat = guard
-                            .iter()
-                            .map(|(k, v)| format!("{} * {}bytes", v.len(), k))
-                            .collect::<Vec<String>>()
-                            .join(",");
-                        log::trace!("current cached buffers: {}", stat);
-                    }
-
-                    Self::_new(len)
-                }
-            };
-        }
-
-        #[cfg(not(feature = "cache-buffer"))]
-        Self::_new(len)
-    }
-
-    fn _new(len: usize) -> Self {
         let inner = DevicePtr {
             ptr: unsafe { ffi::alloc_gpu_buffer(len) },
             len,
@@ -123,24 +59,12 @@ impl DeviceBuffer {
         buf
     }
 
-    pub fn from_slice_with_stream<T>(s: &[T], stream: &Stream) -> Self {
-        assert!(s.len() > 0);
-
-        let len = std::mem::size_of::<T>() * s.len();
-        let s = unsafe { std::slice::from_raw_parts(&s[0] as *const T as *const u8, len) };
-
-        let mut buf = Self::new(len);
-        buf.write_from_with_stream(s.into(), &stream).unwrap();
-
-        buf
+    pub fn len(&self) -> usize {
+        self.inner.len
     }
 
     pub fn ptr(&self) -> DevicePtr {
         self.inner
-    }
-
-    pub fn len(&self) -> usize {
-        self.inner.len
     }
 
     pub fn ptr2(&self, offset: isize, len: usize) -> DevicePtr {
@@ -153,29 +77,15 @@ impl DeviceBuffer {
         res
     }
 
-    pub fn load_to_locked_mem(&self) -> CudaLockedMemBuffer {
-        let res = CudaLockedMemBuffer::new(self.len());
+    pub fn load_to_pinned_mem(&self) -> CudaPinnedMemBuffer {
+        let res = CudaPinnedMemBuffer::new(self.len());
         self.read_into(res.ptr()).unwrap();
-        res
-    }
-
-    pub fn load_with_stream(&self, stream: &Stream) -> Vec<u8> {
-        let mut res = vec![0u8; self.len()];
-        self.read_into_with_stream((&mut res[..]).into(), stream)
-            .unwrap();
-        res
-    }
-
-    pub fn load_to_locked_mem_with_stream(&self, stream: &Stream) -> CudaLockedMemBuffer {
-        let res = CudaLockedMemBuffer::new(self.len());
-        self.read_into_with_stream(res.ptr(), stream)
-            .unwrap();
         res
     }
 
     pub fn load_as<T: Copy + Default>(&self) -> Vec<T> {
         assert_eq!(self.len() % std::mem::size_of::<T>(), 0);
-        let mut res = vec![T::default(); self.len()/ std::mem::size_of::<T>()];
+        let mut res = vec![T::default(); self.len() / std::mem::size_of::<T>()];
         self.read_into((&mut res[..]).into()).unwrap();
         res
     }
@@ -183,24 +93,10 @@ impl DeviceBuffer {
 
 impl Drop for DeviceBuffer {
     fn drop(&mut self) {
-        #[cfg(feature = "cache-buffer")]
-        {
-            self.reset();
-
-            let inner = self.inner;
-            let mut lock = DEV_BUF_CACHE.lock().unwrap();
-            lock.entry(self.len())
-                .or_insert(Vec::new())
-                .push(Self { inner });
+        if self.inner.is_null() {
+            return;
         }
-
-        #[cfg(not(feature = "cache-buffer"))]
-        {
-            if self.inner.is_null() {
-                return;
-            }
-            unsafe { ffi::free_gpu_buffer(self.ptr().ptr()) }
-        }
+        unsafe { ffi::free_gpu_buffer(self.ptr().ptr()) }
     }
 }
 
@@ -214,38 +110,15 @@ impl DeviceBuffer {
         self.ptr().write_from(src.as_ref())?;
         Ok(self.ptr())
     }
-
-    pub fn read_into_with_stream(&self, mut dst: HostPtr, stream: &Stream) -> Result<HostPtr> {
-        self.ptr().read_into_with_stream(dst.as_mut(), stream)?;
-        Ok(dst)
-    }
-
-    pub fn write_from_with_stream(&mut self, src: HostPtr, stream: &Stream) -> Result<DevicePtr> {
-        self.ptr().write_from_with_stream(src.as_ref(), stream)?;
-        Ok(self.ptr())
-    }
 }
 
-pub struct CudaLockedMemBuffer {
+pub struct CudaPinnedMemBuffer {
     inner: *mut u8,
     size: usize,
 }
 
-impl CudaLockedMemBuffer {
-    pub fn new(len: usize) -> Self {
-        #[cfg(feature = "cache-buffer")]
-        {
-            let mut lock = LOCKED_CACHE.lock().unwrap();
-
-            let bufs = lock.entry(len).or_insert(Vec::new());
-            return bufs.pop().unwrap_or_else(|| Self::_new(len));
-        }
-
-        #[cfg(not(feature = "cache-buffer"))]
-        Self::_new(len)
-    }
-
-    pub fn _new(size: usize) -> Self {
+impl CudaPinnedMemBuffer {
+    pub fn new(size: usize) -> Self {
         let res = unsafe {
             Self {
                 inner: ffi::alloc_locked_buffer(size),
@@ -271,39 +144,27 @@ impl CudaLockedMemBuffer {
     }
 }
 
-impl Drop for CudaLockedMemBuffer {
+impl Drop for CudaPinnedMemBuffer {
     fn drop(&mut self) {
-        #[cfg(feature = "cache-buffer")]
-        {
-            self.reset();
-
-            let mut lock = LOCKED_CACHE.lock().unwrap();
-            lock.entry(self.len()).or_insert(Vec::new()).push(Self {
-                inner: self.inner,
-                size: self.size,
-            });
-        }
-
-        #[cfg(not(feature = "cache-buffer"))]
         unsafe {
             ffi::free_locked_buffer(self.inner);
         }
     }
 }
 
-impl AsMut<[u8]> for CudaLockedMemBuffer {
+impl AsMut<[u8]> for CudaPinnedMemBuffer {
     fn as_mut(&mut self) -> &mut [u8] {
         unsafe { slice::from_raw_parts_mut(self.inner, self.size) }
     }
 }
 
-impl AsRef<[u8]> for CudaLockedMemBuffer {
+impl AsRef<[u8]> for CudaPinnedMemBuffer {
     fn as_ref(&self) -> &[u8] {
         unsafe { slice::from_raw_parts(self.inner, self.size) }
     }
 }
 
-impl<T> From<&[T]> for CudaLockedMemBuffer {
+impl<T> From<&[T]> for CudaPinnedMemBuffer {
     fn from(v: &[T]) -> Self {
         let len = std::mem::size_of::<T>() * v.len();
         let mut buf = Self::new(len);
@@ -316,7 +177,7 @@ impl<T> From<&[T]> for CudaLockedMemBuffer {
     }
 }
 
-impl<T> From<Vec<T>> for CudaLockedMemBuffer {
+impl<T> From<Vec<T>> for CudaPinnedMemBuffer {
     fn from(v: Vec<T>) -> Self {
         let len = std::mem::size_of::<T>() * v.len();
         let mut buf = Self::new(len);
@@ -329,7 +190,7 @@ impl<T> From<Vec<T>> for CudaLockedMemBuffer {
     }
 }
 
-unsafe impl Send for CudaLockedMemBuffer {}
+unsafe impl Send for CudaPinnedMemBuffer {}
 
 #[derive(Clone, Copy)]
 pub struct DevicePtr {
@@ -404,44 +265,6 @@ impl DevicePtr {
         Ok(())
     }
 
-    pub fn write_from_with_stream(&mut self, src: &[u8], stream: &Stream) -> Result<()> {
-        ensure!(
-            src.len() <= self.len(),
-            "length of src must less than device ptr"
-        );
-
-        unsafe {
-            ffi::host_to_device_with_stream(src.as_ptr(), self.ptr, src.len(), stream.ptr());
-        }
-        Ok(())
-    }
-
-    pub fn write_from_2d_with_stream(
-        &mut self,
-        src: &[u8],
-        src_pitch: usize,
-        dev_pitch: usize,
-        width: usize,
-        height: usize,
-        stream: &Stream,
-    ) -> Result<()> {
-        ensure!(
-            src.len() % src_pitch == 0,
-            "invalid src and src_pitch"
-        );
-
-        ensure!(
-            src.len() / src_pitch * dev_pitch <= self.len(),
-            "expected length must less than device ptr"
-        );
-
-        unsafe {
-            ffi::host_to_device_2d_with_stream(src.as_ptr(), self.ptr, src_pitch, dev_pitch, width, height, stream.ptr());
-        }
-
-        Ok(())
-    }
-
     pub fn read_into(&self, dst: &mut [u8]) -> Result<()> {
         ensure!(
             self.len() <= dst.len(),
@@ -449,17 +272,6 @@ impl DevicePtr {
         );
         unsafe {
             ffi::device_to_host(self.ptr, dst.as_ptr(), self.len());
-        }
-        Ok(())
-    }
-
-    pub fn read_into_with_stream(&mut self, dst: &mut [u8], stream: &Stream) -> Result<()> {
-        ensure!(
-            self.len() <= dst.len(),
-            "length of device ptr must less than dst"
-        );
-        unsafe {
-            ffi::device_to_host_with_stream(self.ptr, dst.as_ptr(), self.len(), stream.ptr());
         }
         Ok(())
     }
@@ -474,9 +286,6 @@ pub struct HostPtr {
 unsafe impl Send for DevicePtr {}
 unsafe impl Send for HostPtr {}
 
-unsafe impl Sync for DevicePtr {}
-unsafe impl Sync for HostPtr {}
-
 impl HostPtr {
     pub fn ptr(&self) -> *const u8 {
         self.ptr
@@ -484,15 +293,6 @@ impl HostPtr {
 
     pub fn len(&self) -> usize {
         self.len
-    }
-
-    pub unsafe fn to_owned(&self) -> Vec<u8> {
-        let slice = std::slice::from_raw_parts(self.ptr, self.len);
-
-        let mut v = vec![0; self.len];
-        v.copy_from_slice(slice);
-
-        v
     }
 }
 

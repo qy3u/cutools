@@ -23,7 +23,4 @@ which = "^4.0"
 
 [features]
 default = ["stream-per-thread"]
-global-stream = ["lazy_static", "waitpool"]
-cache-buffer = ["lazy_static"]
 stream-per-thread = []
-trace = ["log"]

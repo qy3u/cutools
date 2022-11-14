@@ -10,11 +10,9 @@ extern "C" {
 
     // Buffer
     pub fn alloc_gpu_buffer(bytes: usize) -> *const u8;
-    #[cfg(not(feature = "cache-buffer"))]
     pub fn free_gpu_buffer(buf: *const u8);
 
     pub fn alloc_locked_buffer(bytes: usize) -> *mut u8;
-    #[cfg(not(feature = "cache-buffer"))]
     pub fn free_locked_buffer(buffer: *mut u8);
 
     pub fn cu_memset(dev_ptr: *const u8, value: u8, count: usize);
@@ -22,24 +20,8 @@ extern "C" {
     // Transport
     pub fn host_to_device(host: *const u8, device: *const u8, bytes: usize);
     pub fn device_to_host(device: *const u8, host: *const u8, bytes: usize);
-    pub fn host_to_device_with_stream(
-        host: *const u8,
-        device: *const u8,
-        bytes: usize,
-        stream: *const c_void,
-    );
-    pub fn device_to_host_with_stream(
-        device: *const u8,
-        host: *const u8,
-        bytes: usize,
-        stream: *const c_void,
-    );
-
     pub fn host_to_device_2d(host: *const u8, device: *const u8,
         host_pitch: usize, dev_pitch: usize, width: usize, height: usize);
-
-    pub fn host_to_device_2d_with_stream(host: *const u8, device: *const u8,
-        host_pitch: usize, dev_pitch: usize, width: usize, height: usize, stream: *const c_void);
 
     // Device
     pub fn set_device(index: usize);
