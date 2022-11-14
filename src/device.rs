@@ -14,7 +14,7 @@ pub enum SyncMode {
     Blocking = 4,
 }
 
-pub fn device_count() -> usize {
+pub fn count() -> usize {
     unsafe { ffi::get_device_count() as usize }
 }
 
@@ -36,7 +36,7 @@ pub fn cuda_core_count() -> Result<usize> {
 }
 
 pub fn set_device(index: usize) {
-    assert!(index < device_count(), "invalid index for set device: {}", index);
+    assert!(index < count(), "invalid index for set device: {}", index);
 
     unsafe {
         ffi::set_device(index);
