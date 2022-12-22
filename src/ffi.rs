@@ -31,6 +31,7 @@ extern "C" {
     pub fn device_to_device(dst: *mut u8, src: *const u8, bytes: usize);
 
     // Device
+    pub fn get_total_memory() -> usize;
     pub fn set_device(index: usize);
     pub fn set_device_flags(flags: u32);
     pub fn get_device_count() -> u32;

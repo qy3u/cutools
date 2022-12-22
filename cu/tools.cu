@@ -146,6 +146,12 @@ extern "C" {
 	  return devProp.multiProcessorCount;
   }
 
+  size_t get_total_memory() {
+	  cudaDeviceProp devProp;
+    cudaGetDeviceProperties(&devProp, 0);
+	  return devProp.totalGlobalMem;
+  }
+
   uint32_t get_device_cuda_core_count() {
 	  uint32_t cores = 0;
 

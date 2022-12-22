@@ -18,6 +18,10 @@ pub fn count() -> usize {
     unsafe { ffi::get_device_count() as usize }
 }
 
+pub fn memory() -> usize {
+    unsafe { ffi::get_total_memory() }
+}
+
 pub fn set_sync_mode(mode: SyncMode) {
     unsafe { ffi::set_device_flags(mode as u32) }
 }
