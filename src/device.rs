@@ -39,7 +39,7 @@ pub fn cuda_core_count() -> Result<usize> {
     Ok(count as usize)
 }
 
-pub fn set_device(index: usize) {
+pub fn select(index: usize) {
     assert!(index < count(), "invalid index for set device: {}", index);
 
     unsafe {
