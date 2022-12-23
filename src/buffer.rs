@@ -73,6 +73,15 @@ impl DeviceBuffer {
         self.inner.ptr2(offset, len)
     }
 
+
+    pub fn rptr(&self) -> *const u8 {
+        self.inner.ptr()
+    }
+
+    pub fn rptr_mut(&mut self) -> *mut u8 {
+        self.inner.ptr_mut()
+    }
+
     pub fn load(&self) -> Vec<u8> {
         let mut res = vec![0u8; self.len()];
         self.read_into((&mut res[..]).into()).unwrap();
