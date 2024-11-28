@@ -53,7 +53,7 @@ impl DeviceBuffer {
         let height = s.len();
 
         let buf = Self::new(len);
-        let s = unsafe { std::slice::from_raw_parts(&s[0] as *const T as *const u8, len) };
+        let s = unsafe { std::slice::from_raw_parts(&s[0] as *const T as *const u8, src_pitch * s.len()) };
 
         buf.ptr()
             .write_from_2d(s, src_pitch, dev_pitch, width, height)
